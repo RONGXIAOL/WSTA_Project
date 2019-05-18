@@ -91,6 +91,7 @@ ipython_config.py
 
 # data files
 data/
+model/
 
 # vscode files
 .vscode/
@@ -127,3 +128,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+src/todo
+src/inspect

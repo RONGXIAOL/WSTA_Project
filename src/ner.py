@@ -1,85 +1,101 @@
-import allennlp
 import time
 import json
 import pickle
 import sys
-from allennlp.predictors.predictor import Predictor
-from allennlp.models.archival import load_archive
+import configure
+import nltk
+import pprint
+from nltk.corpus import wordnet
 
+puncs = {':', '.', '&', '%'}
 
-# model_path = "https://s3-us-west-2.amazonaws.com/allennlp/models/ner-model-2018.12.18.tar.gz"
-# predictor = Predictor.from_path(model_path)
+def is_verb(tag_word, tag_type):
+    if(not tag_word.islower()):
+        return False
+    if(tag_type[0] == 'V'):
+        return True
+    wnl = nltk.stem.wordnet.WordNetLemmatizer()
+    new_word = wnl.lemmatize(tag_word, wordnet.VERB)
+    if(new_word != tag_word):
+        return True
+    return False
 
-model_path = "D:\\Documents\\WSTA\\data\\allennlp.model"
-archive = load_archive(model_path, cuda_device=0)
-predictor = Predictor.from_archive(archive)
-
-print("model loaded")
-
-with open("D:\\Documents\\WSTA\\data\\train.ner.pickle", 'rb') as train_ner_in:
-    start = time.time()
-    ners = pickle.load(train_ner_in)
-    print("start tuning ners")
+def get_first_entity(ptags):
+    ret = ""
     count = 0
-    for i in range(len(ners)):
-        ner = ners[i]
-        claim = ner[0]
-        wrong = ner[1]
-        if('-' not in claim):
+    for tag in ptags:
+        tag_word = tag[0]
+        tag_type = tag[1]
+        if(tag_word in puncs):
+            ret = ret.strip()
+            ret += tag_word
+            count += 1
             continue
-        
-        claim = claim.replace('-', ' ')
-        line = {"sentence" : claim}
-        r = predictor.predict_json(line)
-        tags = r['tags']
-        words = r['words']
-        
-        entity = []
-        curr_entity = None
-        curr_label = None
-        for ij in range(len(tags)):
-            tag = tags[ij]
-            if(len(tag) > 1):
-                info = tag.split('-')
-                label_type = info[1]
-                label_pos = info[0]
-                word = words[ij]
-                if (label_pos == 'U'):
-                    curr_entity = word
-                    curr_label = label_type
-                    # print(label_pos, curr_entity, curr_label)
-                    entity.append([curr_entity, curr_label])
-                    curr_entity = None
-                    curr_label = None
-                    continue
-                elif (label_pos == 'B'):
-                    curr_entity = word
-                    curr_label = label_type
-                    # print(label_pos, curr_entity, curr_label)
-                    continue
-                elif (label_pos == 'I'):
-                    curr_entity = curr_entity + ' ' + word
-                    # print(label_pos, curr_entity, curr_label)
-                    continue
-                elif (label_pos == 'L'):
-                    curr_entity = curr_entity + ' ' + word
-                    # print(label_pos, curr_entity, curr_label)
-                    entity.append([curr_entity, curr_label])
-                    curr_entity = None
-                    curr_label = None
-                    continue
-                else:
-                    print(info, word)
-        
-        if(len(wrong) == len(entity)):
-            continue
-        
-        ners[i][1] = entity
-        print(i)
-        if(i % 1000 == 0):
-            now = time.time()
-            print(i, (now - start) / 60.0)
+        if(not tag_word[0].isalnum()):
+            break
+        if(is_verb(tag_word, tag_type)):
+            break
+        if(tag_type == 'POS'):
+            break
+        if(tag_type == 'RB' or (len(tag_word) > 2 and tag_word[-2:] == 'ly')):
+            break
+        ret += tag_word + ' '
+        count += 1
+    return [ret.strip()], ptags[count:]
 
-with open("D:\\Documents\\WSTA\\data\\ner.pickle", 'wb') as ner_out:
-    pickle.dump(ners, ner_out)
-    print("ner pickle dumped")
+def get_rest_entitys(remain_ptags):
+    ret = []
+    tmp = ""
+    for tag in remain_ptags:
+        tag_word = tag[0]
+        tag_type = tag[1]
+        if(tag_word in puncs):
+            tmp.strip()
+            tmp += tag_word
+            continue
+        if(not tag_word[0].isalpha()):
+            if(tmp is not ""):
+                ret.append(tmp.strip())
+                tmp = ""
+            continue
+        if(not tag_word.islower()):
+            tmp += tag_word + ' '
+        elif(tmp is not ""):
+            ret.append(tmp.strip())
+            tmp = ""
+        else:
+            continue
+    if(tmp is not ""):
+        ret.append(tmp.strip())
+    return ret
+
+def parse_claim_entitys(claim):
+    ret = []
+    claim = nltk.word_tokenize(claim)
+    ptags = nltk.pos_tag(claim)
+    first_entity, remain_ptags = get_first_entity(ptags)
+    rest_entitys = get_rest_entitys(remain_ptags)
+    ret = first_entity + rest_entitys
+    ret = [r for r in ret if r is not ""]
+    return ret
+
+def do_train():
+    claim_entitys = {}
+    with open(configure.TRN_JSON, 'r') as train_in:
+        train = json.load(train_in)
+        count = 0
+        for key, entry in train.items():
+            count += 1
+            claim = entry['claim'][:-1]
+            entitys = parse_claim_entitys(claim)
+            claim_entitys[key] = entitys
+            if(count % configure.TRN_STEP == 0):
+                check = time.time()
+                print(count, (check - start) / 60.0)
+
+    with open(configure.JSONPATH + 'entitys.json', 'w') as entitys_out:
+        json.dump(claim_entitys, entitys_out)
+        print("entitys dumped")    
+
+if __name__ == "__main__":
+    print()
