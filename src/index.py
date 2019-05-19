@@ -217,29 +217,10 @@ def get_doc(topic, lines):
     lcopy = [l[:t_len] for l in lines]
     lhsid = bisect_left(lcopy, topic)
     rhsid = bisect_right(lcopy, topic)
+    try:
+        assert(lcopy[lhsid] == topic)
+        assert(lcopy[rhsid-1] == topic)
+    except AssertionError:
+        print(f'{topic} not found, may be unicode inconsistency.')
+        return None
     return lines[lhsid:rhsid]
-
-
-
-def dump_topic_index():
-    ij = 0
-    for wiki in configure.DUMPLIST:
-        ij += 1
-        index = {}
-        with open(configure.DUMPPATH + wiki, 'r', encoding='utf-8') as wiki_in:
-            lines = wiki_in.readlines()[2:]
-            lines = [l.split()[0] for l in lines]
-            count = 2
-            doc_l = len(lines)
-            for line in lines:
-                try:
-                    index[line]['maxi'] += 1
-                except KeyError:
-                    index[line] = {
-                        'mini' : count,
-                        'maxi' : count + 1
-                    }
-                count += 1
-        with open(configure.DIDXPATH + wiki[:3] + '.idx.pickle', 'wb') as idx_out:
-            pickle.dump(index, idx_out)
-            print(ij)

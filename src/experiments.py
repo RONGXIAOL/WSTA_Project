@@ -9,6 +9,7 @@ from difflib import SequenceMatcher
 import json
 from unicodedata import normalize
 import sys
+from pprint import pprint
 
 # s = nltk.word_tokenize("Liverpool F.C. was managed by Bill Shankly.")
 # r = nltk.pos_tag(s)
@@ -33,13 +34,11 @@ import sys
 #         test_out.writelines(dumplist)
 #         print("test dumped")
 
-f = open(configure.DUMPPATH + configure.DUMPLIST[0], 'r', encoding='utf-8')
-ls = f.readlines()
-s = sum([sys.getsizeof(l) for l in ls])
-print(s / 224492)
-lg = len(ls)
-print(lg)
-ls = f.readlines()
-lg = len(ls)
-print(lg)
-f.close()
+s1 = "Daggering is a type of ballet"
+s2 = "Daggering is a form of dance originating from Jamaica"
+l1 = word_tokenize(s1)
+l2 = word_tokenize(s2)
+p1 = pos_tag(l1)
+p2 = pos_tag(l2)
+pprint(p1)
+pprint(p2)

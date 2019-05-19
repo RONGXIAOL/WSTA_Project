@@ -75,9 +75,30 @@ def do_wiki():
         dev_docs = json.load(dev_doc_in)
         print("dev docs loaded")
     for key, entry in dev_docs.items():
-        if(key == '99495'):
-            print(key)
         fdocs = entry['fdocs']
+        for doc in fdocs:
+            wiki = get_wiki(doc, interval)
+            try:
+                doc_wiki[wiki].append((doc, key))
+            except AttributeError:
+                doc_wiki[wiki] = []
+                doc_wiki[wiki].append((doc, key))
+
+    with open(configure.DWK_PICK, 'wb') as doc_wiki_out:
+        pickle.dump(doc_wiki, doc_wiki_out)
+        print("doc wiki dumped")
+
+def do_wiki2():
+    interval = []
+    doc_wiki = [None] * len(configure.DUMPLIST)
+    with open(configure.INT_PICK, 'rb') as int_in:
+        interval = pickle.load(int_in)
+        print("interval loaded")
+    with open(configure.DEV_JSON, 'r') as dev_doc_in:
+        dev_docs = json.load(dev_doc_in)
+        print("dev docs loaded")
+    for key, entry in dev_docs.items():
+        fdocs = entry['evidence']
         for doc in fdocs:
             wiki = get_wiki(doc[0], interval)
             try:
@@ -86,7 +107,7 @@ def do_wiki():
                 doc_wiki[wiki] = []
                 doc_wiki[wiki].append((doc, key))
 
-    with open(configure.DWK_PICK, 'wb') as doc_wiki_out:
+    with open(configure.DATAPATH + 'dwk.pickle', 'wb') as doc_wiki_out:
         pickle.dump(doc_wiki, doc_wiki_out)
         print("doc wiki dumped")
         
@@ -126,25 +147,47 @@ def do_sent():
         json.dump(answer, answer_out)
         print("answer dumped")
 
+def do_sent2():
+    with open(configure.DEV_JSON, 'r', encoding='utf-8') as dev_in:
+        dev = json.load(dev_in)
+        print("dev set loaded")
+    with open(configure.DATAPATH + 'dwk.pickle', 'rb') as doc_wiki_in:
+        doc_wiki = pickle.load(doc_wiki_in)
+        print("doc wiki loaded")
+    inspect = dev
+    for key, entry in inspect.items():
+        entry['sents'] = []
+    start = time.time()
+    count = 0
+    for index, docsl in enumerate(doc_wiki):
+        if(not docsl):
+            continue
+        index = "000" + str(index+1)
+        index = index[-3:]
+        wikifile = index + ".sorted.txt"
+        with open(configure.DUMPPATH + wikifile, 'r', encoding='utf-8') as wiki_in:
+            lines = wiki_in.readlines()
+            for doc in docsl:
+                count += 1
+                if(count % 1000 == 0):
+                    check = time.time()
+                    print(count, (check - start) / 60.0)
+                topic = doc[0][0]
+                s_key = doc[0][1]
+                d_key = doc[1]
+                sents = get_doc(topic, lines)
+                if(not sents):
+                    print(f'{topic} not found')
+                    continue
+                scopy = [(i, s.split()) for (i,s) in enumerate(sents)]
+                scopy = [s for s in scopy if (s[1][1] == str(s_key))]
+                sents = [sents[s[0]] for s in scopy]
+                inspect[d_key]['sents'] += sents
+
+    with open(configure.DATAPATH + 'dev_insp.json', 'w', encoding='utf-8') as dev_insp_out:
+        json.dump(inspect, dev_insp_out)
+        print("dev inspect dumped")
+
 if __name__ == "__main__":
-    do_sent()
-    
-    # with open(configure.DEV_DOCS, 'r', encoding='utf-8') as docs_in:
-    # claim_docs = json.load(docs_in)
-    # print("dev docs loaded")
-    # set1 = set(dev.keys())
-    # set2 = set(answer.keys())
-    # lost_keys = set1 - set2
-    # for key in lost_keys:
-    #     count += 1
-    #     if(count % 1000 == 0):
-    #         print(count)
-    #     claim = dev[key]['claim']
-    #     label = 'SUPPORTS'
-    #     topics = claim_docs[key]['fdocs']
-    #     evidence = [[t, 0] for t in topics]
-    #     answer[d_key] = {
-    #         'claim' : claim,
-    #         'label' : label,
-    #         'evidence' : evidence
-    #     }
+    sys.exit(0)
+
