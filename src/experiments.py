@@ -1,5 +1,5 @@
 import nltk
-from nltk import pos_tag, word_tokenize, edit_distance, jaccard_distance
+from nltk import pos_tag, word_tokenize
 from nltk.corpus import wordnet
 import os
 import configure
@@ -11,9 +11,9 @@ from unicodedata import normalize
 import sys
 from pprint import pprint
 
-# s = nltk.word_tokenize("Liverpool F.C. was managed by Bill Shankly.")
-# r = nltk.pos_tag(s)
-# print(r)
+s = nltk.word_tokenize("Liverpool F.C. co-stars managed by Bill Shankly.")
+r = nltk.pos_tag(s)
+print(r)
 
 # s1 = "The Boston Celtics"
 # s2 = "Boston Celtics"
@@ -34,8 +34,8 @@ from pprint import pprint
 #         test_out.writelines(dumplist)
 #         print("test dumped")
 
-s1 = "Daggering is a type of ballet"
-s2 = "Daggering is a form of dance originating from Jamaica"
+s1 = "I have been to Australia this year"
+s2 = "The second album of Danny Brown was named XXX"
 l1 = word_tokenize(s1)
 l2 = word_tokenize(s2)
 p1 = pos_tag(l1)
