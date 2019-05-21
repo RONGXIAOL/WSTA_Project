@@ -10,12 +10,15 @@ from collections import Counter
 from bisect import bisect_left, bisect_right
 from unicodedata import normalize
 
+
 def trim(topic):
     topic = re.sub(r'-LRB-.*?-RRB-', '', topic)
     topic = re.sub(r'-LSB-.*?-RSB-', '', topic)
     topic = re.sub(r'-LCB-.*?-RCB-', '', topic)
     topic = topic.replace('-COLON-_', ':')
+    topic = topic.replace('_', ' ')
     return topic
+
 
 def sort_by_wiki():
     intervals = []
@@ -25,7 +28,7 @@ def sort_by_wiki():
             lines = wikifile.readlines()
             lcopy = lines
             lines = [[id, line.split()] for id, line in enumerate(lines)]
-            lines = sorted(lines, key=lambda l:l[1][0])
+            lines = sorted(lines, key=lambda l: l[1][0])
             mini = lines[0][1][0]
             maxi = lines[-1][1][0]
             intervals.append((mini, maxi))
@@ -43,6 +46,7 @@ def sort_by_wiki():
             intervals_out.write("mini = {}, maxi = {}\n".format(mini, maxi))
         print("intervals dumped")
 
+
 def adjust_margin(chunk, lines):
     if(len(chunk) == 0 or len(lines) == 0):
         return chunk, lines
@@ -54,6 +58,7 @@ def adjust_margin(chunk, lines):
             count += 1
             chunk.append(line)
     return chunk, lines[count:]
+
 
 def sort_by_corpus():
     offset = 8
@@ -75,7 +80,7 @@ def sort_by_corpus():
             cut_size = len(delta)
         lcopy = lines
         lines = [[id, line.split()] for id, line in enumerate(lines)]
-        lines = sorted(lines, key=lambda l:l[1][0])
+        lines = sorted(lines, key=lambda l: l[1][0])
         index = [line[0] for line in lines]
         lines = [lcopy[idx] for idx in index]
         chunk = lines[:cut_size]
@@ -133,6 +138,7 @@ def sort_by_corpus():
             interval_out.write('\n')
         print("interval dumped")
 
+
 def dump_topics():
     topics = []
     configure.DUMPLIST = os.listdir(configure.DUMPPATH)
@@ -143,7 +149,7 @@ def dump_topics():
     count = 0
     for wikiname in configure.DUMPLIST:
         todump = []
-        with open (configure.DUMPPATH + wikiname, 'r', encoding='utf-8') as wiki_in:
+        with open(configure.DUMPPATH + wikiname, 'r', encoding='utf-8') as wiki_in:
             lines = wiki_in.readlines()
             prev = lines[2].split()[0]
             for line in lines[2:]:
@@ -164,6 +170,7 @@ def dump_topics():
         pickle.dump(topics, topics_out)
         print("topics dumped")
 
+
 def trim_topics():
     with open(configure.TPC_PICK, 'rb') as topics_in:
         topics = pickle.load(topics_in)
@@ -175,6 +182,7 @@ def trim_topics():
     with open(configure.TRM_PICK, 'wb') as trimed_out:
         pickle.dump(trimed, trimed_out)
         print("trimed dumped")
+
 
 def dump_capitals():
     trimed = []
@@ -189,13 +197,14 @@ def dump_capitals():
             capitals[fchar]['maxi'] += 1
         except KeyError:
             capitals[fchar] = {
-                'mini' : count,
-                'maxi' : count + 1
+                'mini': count,
+                'maxi': count + 1
             }
         count += 1
     with open(configure.CAP_JSON, 'w', encoding='utf-8') as cap_out:
         json.dump(capitals, cap_out)
         print("capitals dumped")
+
 
 def get_wiki(topic, interval):
     wiki = None
@@ -209,6 +218,7 @@ def get_wiki(topic, interval):
         print("{} not found in corpus".format(topic))
         return None
     return wiki
+
 
 def get_doc(topic, lines):
     lines = lines[2:]

@@ -7,18 +7,79 @@ import pickle
 import configure
 from unicodedata import normalize
 from query import remove_articles, query_doc
-from index import get_doc, get_wiki, trim
 from pprint import pprint
 from ner import parse_claim_entitys, get_keywords, extract_info, weight
+from similar import similarity
+
+answ_file = None
+docs_file = None
+json_file = None
+ners_file = None
+mode_name = {
+    configure.DEV_MODE: 'DEV',
+    configure.NEI_MODE: 'NEI',
+    configure.REF_MODE: 'REF',
+    configure.SUP_MODE: 'SUP',
+    configure.TRN_MODE: 'TRN',
+    configure.TST_MODE: 'TST'
+}
+
+def do_file(mode=configure.DEV_MODE):
+    global answ_file
+    global docs_file
+    global json_file
+    global ners_file
+    if (mode == configure.DEV_MODE):
+        answ_file = configure.DEV_ANSW
+        docs_file = configure.DEV_JSON
+        json_file = configure.DEV_JSON
+        ners_file = configure.DEV_NERS
+    elif (mode == configure.TST_MODE):
+        answ_file = configure.TST_ANSW
+        docs_file = configure.TST_JSON
+        json_file = configure.TST_JSON
+        ners_file = configure.TST_NERS
+    elif (mode == configure.TRN_MODE):
+        answ_file = configure.TRN_ANSW
+        docs_file = configure.TRN_JSON
+        json_file = configure.TRN_JSON
+        ners_file = configure.TRN_NERS
+    elif (mode == configure.SUP_MODE):
+        answ_file = configure.SUP_ANSW
+        docs_file = configure.SUP_JSON
+        json_file = configure.SUP_JSON
+        ners_file = configure.SUP_NERS
+    elif (mode == configure.REF_MODE):
+        answ_file = configure.REF_ANSW
+        docs_file = configure.REF_JSON
+        json_file = configure.REF_JSON
+        ners_file = configure.REF_NERS
+    elif (mode == configure.NEI_MODE):
+        answ_file = configure.NEI_ANSW
+        docs_file = configure.NEI_JSON
+        json_file = configure.NEI_JSON
+        ners_file = configure.NEI_NERS
+    else:
+        raise TypeError('Mode {mode} not exist, exiting...')
 
 
-def sent_sim(ckw, skw, cj, sj):
+def check_file():
+    if(answ_file and docs_file and json_file and ners_file):
+        return
+    raise ValueError(
+        'Path to save files not set, call do_file() with mode argument specified')
+
+
+def reset_file():
+    answ_file = None
+    docs_file = None
+    json_file = None
+    ners_file = None
+
+
+def sent_sim(ckw, skw):
     cwords = [c[0] for c in ckw]
-    cptags = [c[1] for c in ckw]
     swords = [s[0] for s in skw]
-    sptags = [s[1] for s in skw]
-    j1_score = cj ^ sj
-    j2_score = cj and sj
     w_score = 0
     for sw in skw:
         if(sw[0] in cwords):
@@ -27,38 +88,29 @@ def sent_sim(ckw, skw, cj, sj):
 
 
 def pick_sents(claim, sents):
-    c_keywords, cvnum, cbnum = get_keywords(claim)
-    c_judge = not bool(cvnum - cbnum)
+    c_keywords = get_keywords(claim)
     c_document = extract_info(sents)
     ret = []
     for key, content in c_document.items():
-        s_keywords, svnum, sbnum = get_keywords(content)
-        s_judge = not bool(svnum - sbnum)
-        score = sent_sim(c_keywords, s_keywords, c_judge, s_judge)
+        s_keywords = get_keywords(content)
+        score = sent_sim(c_keywords, s_keywords)
         ret.append([key, score, content])
     ret = sorted(ret, key=lambda r: r[1], reverse=True)
     # ret = [r for r in ret if r[1] > 0]
     ret = [r for r in ret if r[1] > configure.RAW_THRE]
+    # ret = [r for r in ret if r[1] > configure.SIM_THRE]
     return ret
 
 
-def refine_choice(evidence):
-    evidence = sorted(evidence, key=lambda e: e[1][1])
-    return evidence
-
-
-def do_answer(dev, answer, mode=configure.DEV_MODE):
+def do_answ(dev, answer):
+    check_file()
     todump = {}
     for key, entry in dev.items():
         claim = entry['claim']
         label = answer[key]['label']
         evidence = answer[key]['evidence']
-        evidence = sorted(evidence, key=lambda s: s[1][1], reverse=True)[:configure.TOP_THRE]
-        # try:
-        #     maxscore = evidence[0][1][1]
-        # except IndexError:
-        #     pass
-        # evidence = [[e[0], [e[1][0], e[1][1]/maxscore]] for e in evidence]
+        evidence = sorted(evidence, key=lambda s: s[1][1], reverse=True)[
+            :configure.TOP_THRE]
         answer[key]['evidence'] = evidence
         # evidence = [[normalize('NFD', e[0]), int(e[1][0])] for e in evidence if (e[1][1] < configure.SIM_THRE)]
         evidence = [[normalize('NFD', e[0]), int(e[1][0])] for e in evidence]
@@ -67,19 +119,18 @@ def do_answer(dev, answer, mode=configure.DEV_MODE):
             'label': label,
             'evidence': evidence
         }
-    answ_file = None
-    if(mode == configure.TST_MODE):
-        answ_file = configure.TST_ANSW
     with open(answ_file, 'w', encoding='utf-8') as answer_out:
         json.dump(todump, answer_out)
         print("answer dumped")
-    if(mode == configure.DEV_MODE):
+    if(mode != configure.TST_MODE):
         with open(configure.DATAPATH + 'check_answer.json', 'w', encoding='utf-8') as check_out:
             json.dump(answer, check_out)
             print("check dumped")
+    reset_file()
 
 
-def do_ner(mode=configure.DEV_MODE):
+def do_ners():
+    check_file()
     claim_entitys = {}
     with open(configure.DEV_JSON, 'r', encoding='utf-8') as dev_in:
         dev = json.load(dev_in)
@@ -88,19 +139,13 @@ def do_ner(mode=configure.DEV_MODE):
             entitys = parse_claim_entitys(claim)
             claim_entitys[key] = entitys
 
-    with open(configure.JSONPATH + 'dev_entitys.json', 'w', encoding='utf-8') as entitys_out:
+    with open(ners_file, 'w', encoding='utf-8') as entitys_out:
         json.dump(claim_entitys, entitys_out)
         print("entitys dumped")
 
 
-def do_doc(mode=configure.DEV_MODE):
-    json_file = None
-    docs_file = None
-    ners_file = None
-    if(mode == configure.TST_MODE):
-        json_file = configure.TST_JSON
-        docs_file = configure.TST_DOCS
-        ners_file = configure.TST_NERS
+def do_docs():
+    check_file()
     with open(ners_file, 'r', encoding='utf-8') as entitys_in:
         entitys = json.load(entitys_in)
         print("entitys loaded")
@@ -115,10 +160,12 @@ def do_doc(mode=configure.DEV_MODE):
         print("dataset loaded")
     count = 0
     claim_docs = {}
+    start = time.time()
     for key, entry in entitys.items():
         count += 1
         if(count % 1000 == 0):
-            print(count)
+            point = time.time()
+            print(count, (point-start)/60)
         query = entitys[key]
         noart = remove_articles(query)
         noart = [n for n in noart if n not in query]
@@ -138,19 +185,17 @@ def do_doc(mode=configure.DEV_MODE):
     with open(docs_file, 'w', encoding='utf-8') as docs_out:
         json.dump(claim_docs, docs_out)
         print("docs dumped")
-    do_wiki(mode=mode)
+    do_wiki()
 
 
-def do_wiki(mode=configure.DEV_MODE):
+def do_wiki():
     interval = []
     doc_wiki = [None] * len(configure.DUMPLIST)
-    docs_file = None
-    if(mode == configure.TST_MODE):
-        docs_file = configure.TST_DOCS
+    check_file()
     with open(configure.INT_PICK, 'rb') as int_in:
         interval = pickle.load(int_in)
         print("interval loaded")
-    with open(docs_file, 'r') as dev_doc_in:
+    with open(docs_file, 'r', encoding='utf-8') as dev_doc_in:
         dev_docs = json.load(dev_doc_in)
         print("docs loaded")
     for key, entry in dev_docs.items():
@@ -168,20 +213,18 @@ def do_wiki(mode=configure.DEV_MODE):
         print("doc wiki dumped")
 
 
-def do_sent(mode=configure.DEV_MODE):
-    json_file = None
-    if(mode == configure.TST_MODE):
-        json_file = configure.TST_JSON
+def do_sent():
+    check_file()
     with open(json_file, 'r', encoding='utf-8') as dev_in:
         dev = json.load(dev_in)
         print("dev set loaded")
     with open(configure.DWK_PICK, 'rb') as doc_wiki_in:
         doc_wiki = pickle.load(doc_wiki_in)
         print("doc wiki loaded")
-    answer = dev
-    for key, entry in answer.items():
-        entry['label'] = 'SUPPORTS'
-        entry['evidence'] = []
+    answer = {}
+    for key, entry in dev.items():
+        answer[key] = entry
+        answer[key]['evidence'] = []
     count = 0
     start = time.time()
     for index, docsl in enumerate(doc_wiki):
@@ -194,9 +237,7 @@ def do_sent(mode=configure.DEV_MODE):
             lines = wiki_in.readlines()
             for doc in docsl:
                 count += 1
-                if(count % 1000 == 0):
-                    # do_answer(dev, answer, mode=mode)
-                    # sys.exit(0)
+                if(count % 100 == 0):
                     check = time.time()
                     print(count, (check - start) / 60.0)
                 topic = doc[0]
@@ -208,10 +249,20 @@ def do_sent(mode=configure.DEV_MODE):
                 sents = pick_sents(claim, sents)
                 evidence = [[topic, s] for s in sents]
                 answer[d_key]['evidence'] += evidence
-    do_answer(dev, answer, mode=mode)
+        # if(count > 100):
+            # break
+    do_answ(dev, answer)
+
+
+def main():
+    mode = configure.DEV_MODE
+    name = mode_name[mode]
+    print(f'Start in ***{name}*** mode')
+    # do_file(mode=mode)
+    # do_ners()
+    # do_docs()
+    # do_sent()
 
 
 if __name__ == "__main__":
-    # do_wiki(configure.TST_MODE)
-    do_sent(mode=configure.TST_MODE)
-    # do_sent(mode=configure.TST_MODE)
+    main()

@@ -9,36 +9,33 @@ from difflib import SequenceMatcher
 import json
 from unicodedata import normalize
 import sys
+import io
+import re
+import copy
+from similar import similarity
 from pprint import pprint
+from ner import get_keywords
 
-s = nltk.word_tokenize("Liverpool F.C. co-stars managed by Bill Shankly.")
-r = nltk.pos_tag(s)
-print(r)
-
-# s1 = "The Boston Celtics"
-# s2 = "Boston Celtics"
-# r1 = edit_distance(s1, s2)
-# print(r1)
-
-# word = "3"
-# print(word.islower())
-# print(word.isalnum())
+# s = nltk.word_tokenize("Liverpool F.C. co-stars managed by Bill Shankly.")
+# r = nltk.pos_tag(s)
+# print(r)
 
 # tag_word = "co-starts"
 # wnl = nltk.stem.wordnet.WordNetLemmatizer()
 # new_word = wnl.lemmatize(tag_word, wordnet.VERB)
 # print(tag_word, new_word)
 
-# dumplist = os.listdir(configure.DUMPPATH)
-# with open(configure.JSONPATH + "test.txt", 'w', encoding='utf-8') as test_out:
-#         test_out.writelines(dumplist)
-#         print("test dumped")
 
-s1 = "I have been to Australia this year"
-s2 = "The second album of Danny Brown was named XXX"
-l1 = word_tokenize(s1)
-l2 = word_tokenize(s2)
-p1 = pos_tag(l1)
-p2 = pos_tag(l2)
-pprint(p1)
-pprint(p2)
+# s1 = "I have been to Australia this February"
+# s2 = "The second album of Danny Brown was named XX"
+# l1 = word_tokenize(s1)
+# l2 = word_tokenize(s2)
+# p1 = pos_tag(l1)
+# p2 = pos_tag(l2)
+# pprint(p1)
+# pprint(p2)
+
+# [0, 24357, 64724, 12427, 4036, 1754, 742, 189, 29, 2]
+s = 'Chris Pine appeared in Wonder Woman (2017 film)'
+s = re.sub(r'\([\w\d]+?\)', '', s)
+print(s)
