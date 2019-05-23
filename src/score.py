@@ -6,6 +6,8 @@ NEI = 'NOT ENOUGH INFO'
 
 actual = json.load(open(configure.DEV_JSON))
 predicted = json.load(open(configure.DEV_ANSW))
+# predicted = json.load(open('D:\\Documents\\WSTA\\Project\\data\\tmp_check.json'))
+
 
 assert set(actual.keys()) == set(predicted.keys())
 

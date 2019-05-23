@@ -5,12 +5,15 @@ import time
 import json
 import pickle
 import configure
-from unicodedata import normalize
-from query import remove_articles, query_doc
 from pprint import pprint
-from ner import parse_claim_entitys, get_keywords, extract_info, weight
-from similar import similarity
+from unicodedata import normalize
+from nltk.stem.wordnet import WordNetLemmatizer
+from index import get_wiki, get_doc, trim
+from ner import parse_claim_entitys, extract_info, weight, word_similarity
+from ner import remove_articles, get_keywords, query_doc, load_unig_entity
 
+wnl = WordNetLemmatizer()
+mode = None
 answ_file = None
 docs_file = None
 json_file = None
@@ -23,6 +26,11 @@ mode_name = {
     configure.TRN_MODE: 'TRN',
     configure.TST_MODE: 'TST'
 }
+VERB_WEIGHT = 0.4
+NOUN_WEIGHT = 0.3
+ADJV_WEIGHT = 0.2
+MISC_WEIGHT = 0.1
+
 
 def do_file(mode=configure.DEV_MODE):
     global answ_file
@@ -31,32 +39,32 @@ def do_file(mode=configure.DEV_MODE):
     global ners_file
     if (mode == configure.DEV_MODE):
         answ_file = configure.DEV_ANSW
-        docs_file = configure.DEV_JSON
+        docs_file = configure.DEV_DOCS
         json_file = configure.DEV_JSON
         ners_file = configure.DEV_NERS
     elif (mode == configure.TST_MODE):
         answ_file = configure.TST_ANSW
-        docs_file = configure.TST_JSON
+        docs_file = configure.TST_DOCS
         json_file = configure.TST_JSON
         ners_file = configure.TST_NERS
     elif (mode == configure.TRN_MODE):
         answ_file = configure.TRN_ANSW
-        docs_file = configure.TRN_JSON
+        docs_file = configure.TRN_DOCS
         json_file = configure.TRN_JSON
         ners_file = configure.TRN_NERS
     elif (mode == configure.SUP_MODE):
         answ_file = configure.SUP_ANSW
-        docs_file = configure.SUP_JSON
+        docs_file = configure.SUP_DOCS
         json_file = configure.SUP_JSON
         ners_file = configure.SUP_NERS
     elif (mode == configure.REF_MODE):
         answ_file = configure.REF_ANSW
-        docs_file = configure.REF_JSON
+        docs_file = configure.REF_DOCS
         json_file = configure.REF_JSON
         ners_file = configure.REF_NERS
     elif (mode == configure.NEI_MODE):
         answ_file = configure.NEI_ANSW
-        docs_file = configure.NEI_JSON
+        docs_file = configure.NEI_DOCS
         json_file = configure.NEI_JSON
         ners_file = configure.NEI_NERS
     else:
@@ -71,34 +79,87 @@ def check_file():
 
 
 def reset_file():
+    global answ_file
+    global docs_file
+    global json_file
+    global ners_file
     answ_file = None
     docs_file = None
     json_file = None
     ners_file = None
 
 
+def words_sim(cwords, swords):
+    if(len(cwords) == 0):
+        return 0.0
+    ret = 0.0
+    for cw in cwords:
+        max_sim = 0.0
+        for sw in swords:
+            sim = word_similarity(sw, cw)
+            max_sim = max(sim, max_sim)
+        ret += max_sim
+    ret = ret / len(cwords)
+    return ret
+
+
 def sent_sim(ckw, skw):
-    cwords = [c[0] for c in ckw]
-    swords = [s[0] for s in skw]
-    w_score = 0
-    for sw in skw:
-        if(sw[0] in cwords):
-            w_score += weight(sw)
-    return w_score
+    cverbs = [c[0] for c in ckw if c[1][0] == 'V']
+    cnouns = [c[0] for c in ckw if c[1][0] == 'N']
+    cadjvs = [c[0] for c in ckw if c[1][0] in {'J', 'R'}]
+    cother = [c[0] for c in ckw if c[0] not in (cnouns + cverbs + cadjvs)]
+    cverbs = [wnl.lemmatize(c, 'v') for c in cverbs]
+    cnouns = [wnl.lemmatize(c, 'n') for c in cnouns]
+    cadjvs = [wnl.lemmatize(c, 'r') for c in cadjvs]
+    cadjvs = [wnl.lemmatize(c, 'a') for c in cadjvs]
+
+    sverbs = [s[0] for s in skw if s[1][0] == 'V']
+    snouns = [s[0] for s in skw if s[1][0] == 'N']
+    sadjvs = [s[0] for s in skw if s[1][0] in {'J', 'R'}]
+    sother = [s[0] for s in skw if s[0] not in (snouns + sverbs + sadjvs)]
+    sverbs = [wnl.lemmatize(s, 'v') for s in sverbs]
+    snouns = [wnl.lemmatize(s, 'n') for s in snouns]
+    sadjvs = [wnl.lemmatize(s, 'r') for s in sadjvs]
+    sadjvs = [wnl.lemmatize(s, 'a') for s in sadjvs]
+
+    vscore = VERB_WEIGHT * words_sim(cverbs, sverbs)
+    nscore = NOUN_WEIGHT * words_sim(cnouns, snouns)
+    ascore = ADJV_WEIGHT * words_sim(cadjvs, sadjvs)
+    oscore = MISC_WEIGHT * words_sim(cother, sother)
+
+    vinuse = int(bool(len(cverbs) > 0))
+    ninuse = int(bool(len(cnouns) > 0))
+    ainuse = int(bool(len(cadjvs) > 0))
+    oinuse = int(bool(len(cother) > 0))
+    
+    wscore = vscore * vinuse + nscore * ninuse + ascore * ainuse + oscore * oinuse
+    try:
+        wscore = wscore / (VERB_WEIGHT * vinuse + NOUN_WEIGHT *
+                       ninuse + ADJV_WEIGHT * ainuse + MISC_WEIGHT * oinuse)
+    except ZeroDivisionError:
+        wscore = 0.0
+        print(ckw, skw)
+    assert(wscore <= 1)
+    return wscore
 
 
 def pick_sents(claim, sents):
+    claim = claim[:-1]
     c_keywords = get_keywords(claim)
-    c_document = extract_info(sents)
+    c_document, topic = extract_info(sents)
+    topic_words = set(trim(topic).split())
+    c_keywords = [ckw for ckw in c_keywords if ckw[0] not in topic_words]
     ret = []
     for key, content in c_document.items():
         s_keywords = get_keywords(content)
+        s_keywords = [skw for skw in s_keywords if skw[0] not in topic_words]
         score = sent_sim(c_keywords, s_keywords)
+        content = topic + ' ' + key + ' ' + content
         ret.append([key, score, content])
     ret = sorted(ret, key=lambda r: r[1], reverse=True)
     # ret = [r for r in ret if r[1] > 0]
-    ret = [r for r in ret if r[1] > configure.RAW_THRE]
-    # ret = [r for r in ret if r[1] > configure.SIM_THRE]
+    # ret = [r for r in ret if r[1] > configure.RAW_THRE]
+    ret = [r for r in ret if r[1] > configure.SIM_THRE]
     return ret
 
 
@@ -107,35 +168,39 @@ def do_answ(dev, answer):
     todump = {}
     for key, entry in dev.items():
         claim = entry['claim']
-        label = answer[key]['label']
+        label = "SUPPORTS"
         evidence = answer[key]['evidence']
+        score = [e[1][1] for e in evidence]
+        sents = [e[1][2] for e in evidence]
         evidence = sorted(evidence, key=lambda s: s[1][1], reverse=True)[
             :configure.TOP_THRE]
         answer[key]['evidence'] = evidence
-        # evidence = [[normalize('NFD', e[0]), int(e[1][0])] for e in evidence if (e[1][1] < configure.SIM_THRE)]
         evidence = [[normalize('NFD', e[0]), int(e[1][0])] for e in evidence]
         todump[key] = {
             'claim': claim,
             'label': label,
-            'evidence': evidence
+            'evidence': evidence,
+            'score' : score,
+            'sents' : sents
         }
     with open(answ_file, 'w', encoding='utf-8') as answer_out:
         json.dump(todump, answer_out)
         print("answer dumped")
-    if(mode != configure.TST_MODE):
-        with open(configure.DATAPATH + 'check_answer.json', 'w', encoding='utf-8') as check_out:
-            json.dump(answer, check_out)
-            print("check dumped")
     reset_file()
 
 
 def do_ners():
     check_file()
     claim_entitys = {}
-    with open(configure.DEV_JSON, 'r', encoding='utf-8') as dev_in:
+    load_unig_entity()
+    with open(json_file, 'r', encoding='utf-8') as dev_in:
         dev = json.load(dev_in)
+        count = 0
         for key, entry in dev.items():
-            claim = entry['claim'][:-1]
+            count += 1
+            if(count % 1000 == 0):
+                print(count)
+            claim = entry['claim']
             entitys = parse_claim_entitys(claim)
             claim_entitys[key] = entitys
 
@@ -160,15 +225,15 @@ def do_docs():
         print("dataset loaded")
     count = 0
     claim_docs = {}
+    count_docs = 0
     start = time.time()
     for key, entry in entitys.items():
         count += 1
-        if(count % 1000 == 0):
+        if(count % 100 == 0):
             point = time.time()
             print(count, (point-start)/60)
         query = entitys[key]
         noart = remove_articles(query)
-        noart = [n for n in noart if n not in query]
         qdocs = query_doc(query, trimed, capital)
         ndocs = query_doc(noart, trimed, capital)
         ndocs = [(n[0], n[1]+1) for n in ndocs]
@@ -176,15 +241,18 @@ def do_docs():
         fdocs = sorted(fdocs, key=lambda tup: tup[1])
         if(len(fdocs) > configure.TOP_THRE):
             fdocs = [f for f in fdocs if f[1] is 0]
+            # fdocs = [f for f in fdocs if f[1] < configure.DIF_SIZE]
         fdocs = [f[0] for f in fdocs]
         claim = dev[key]['claim']
         claim_docs[key] = {
             "claim": claim,
             "fdocs": fdocs
         }
+        count_docs += len(fdocs)
     with open(docs_file, 'w', encoding='utf-8') as docs_out:
         json.dump(claim_docs, docs_out)
         print("docs dumped")
+        print(f'{count_docs} docs in total')
     do_wiki()
 
 
@@ -223,8 +291,13 @@ def do_sent():
         print("doc wiki loaded")
     answer = {}
     for key, entry in dev.items():
-        answer[key] = entry
-        answer[key]['evidence'] = []
+        answer[key] = {
+            'claim': entry['claim'],
+            'label': 'SUPPORTS',
+            'evidence': [],
+            'sents' : [],
+            'score' : []
+        }
     count = 0
     start = time.time()
     for index, docsl in enumerate(doc_wiki):
@@ -255,12 +328,14 @@ def do_sent():
 
 
 def main():
+    global mode
     mode = configure.DEV_MODE
     name = mode_name[mode]
     print(f'Start in ***{name}*** mode')
-    # do_file(mode=mode)
+    do_file(mode=mode)
     # do_ners()
     # do_docs()
+    do_wiki()
     # do_sent()
 
 
