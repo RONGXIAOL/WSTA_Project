@@ -16,12 +16,12 @@ SUP_JSON = JSONPATH + 'sup_set.json'
 REF_JSON = JSONPATH + 'ref_set.json'
 NEI_JSON = JSONPATH + 'nei_set.json'
 
-DEV_ANSW = JSONPATH + "devoutput.json"
-TST_ANSW = JSONPATH + "testoutput.json"
-TRN_ANSW = JSONPATH + "trainoutput.json"
-SUP_ANSW = JSONPATH + 'supoutput.json'
-REF_ANSW = JSONPATH + 'refoutput.json'
-NEI_ANSW = JSONPATH + 'neioutput.json'
+DEV_ANSW = JSONPATH + "dev_out.json"
+TST_ANSW = JSONPATH + "test_out.json"
+TRN_ANSW = JSONPATH + "train_out.json"
+SUP_ANSW = JSONPATH + 'sup_out.json'
+REF_ANSW = JSONPATH + 'ref_out.json'
+NEI_ANSW = JSONPATH + 'nei_out.json'
 
 DEV_DOCS = JSONPATH + "dev_docs.json"
 TST_DOCS = JSONPATH + "test_docs.json"

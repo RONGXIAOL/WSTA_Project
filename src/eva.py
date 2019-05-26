@@ -4,6 +4,7 @@ import io
 import sys
 import time
 import json
+import index
 import pickle
 import configure
 from nltk import FreqDist
@@ -136,9 +137,10 @@ def find_gold_entitys(entry):
     entitys = entry['evidence']
     entitys = [e[0] for e in entitys]
     entitys = list(set(entitys))
-    entitys = [(e, trim(e).strip()) for e in entitys]
+    entitys = [(e, index.trim(e).strip()) for e in entitys]
     entitys = [(e[0], e[1].replace('_', ' ')) for e in entitys]
     ret = [e for e in entitys if (claim.find(e[1]) != -1)]
+    ret = entitys
     if(len(ret) == 0):
         return None
     else:
@@ -172,7 +174,7 @@ def dump_gold_entitys():
 
 def dump_diff_entitys():
     diff = {}
-    lens = [0] * 10
+    lens = [0] * 30
     with open(configure.INSPPATH + 'gold_entitys.json', 'r', encoding='utf-8') as gold_in:
         gold = json.load(gold_in)
         print("gold entitys loaded")
@@ -187,7 +189,11 @@ def dump_diff_entitys():
         wood_art = remove_articles(wood_set)
         wood_set = wood_set + wood_art
         diff_set = [g for g in gold_set if g not in wood_set]
-        lens[len(diff_set)] += 1
+        try:
+            lens[len(diff_set)] += 1
+        except IndexError:
+            print(len(diff_set))
+            sys.exit(0)
         if(len(diff_set) == 0):
             continue
         diff[key] = {}
@@ -198,6 +204,8 @@ def dump_diff_entitys():
         json.dump(diff, entitys_out)
         print("diff entitys dumped")
     print(lens)
+    lensum = sum([k*v for k, v in enumerate(lens)])
+    print(lensum)
 
 
 def dump_wood_entitys():
@@ -269,6 +277,74 @@ def dump_unigram_blacklist():
         print("unigram blacklist dumped")
 
 
+def dump_train_set():
+    print("dumping train set, this will take very very long...")
+    with open(configure.TRN_JSON, 'r', encoding='utf-8') as data_in:
+        data = json.load(data_in)
+        print("train data loaded")
+    with open(configure.INT_PICK, 'rb') as int_in:
+        interval = pickle.load(int_in)
+        print("interval loaded")
+    count = 0
+    new_data = {}
+    for key, entry in data.items():
+        count += 1
+        # if(count > 10):
+            # print(count)
+            # break
+        evidence = entry['evidence']
+        new_data[key] = {
+            'claim': entry['claim'],
+            'evidence': evidence,
+            'sents': []
+        }
+        for e in evidence:
+            doc = e[0]
+            idx = e[1]
+            wiki = index.get_wiki(doc, interval)
+            wiki = "000" + str(wiki+1)
+            wiki = wiki[-3:]
+            wiki = wiki + ".sorted.txt"
+            with open(configure.DUMPPATH + wiki, 'r', encoding='utf-8') as wiki_in:
+                lines = wiki_in.readlines()
+                sents = index.get_doc(doc, lines)
+                s_idx = [s.split()[1] for s in sents]
+                for i, v in enumerate(s_idx):
+                    if(int(v) == idx):
+                        new_data[key]['sents'].append(sents[i])
+                        break
+        new_data[key]['sents'] = index.get_sents(new_data[key]['sents'])
+    with open(configure.DATAPATH + 'train_out.json', 'w', encoding='utf-8') as data_out:
+        json.dump(new_data, data_out, indent=4)
+        print("new train set dumped")
+        
+
+def dump_no_link_dev():
+    with open(configure.DEV_JSON, 'r', encoding='utf-8') as data_in:
+        data = json.load(data_in)
+        print("dev data loaded")
+    no_link = {}
+    for key, entry in data.items():
+        claim = entry['claim']
+        label = entry['label']
+        no_link[key] = {
+            'claim': claim,
+            'label': label,
+            'evidence': []
+        }
+        evidence = entry['evidence']
+        no_link_evidence = []
+        for e in evidence:
+            topic = e[0]
+            topic = index.trim(topic)
+            if(claim.find(topic) != -1):
+                no_link_evidence.append(e)
+        no_link[key]['evidence'] = no_link_evidence
+    with open(configure.INSPPATH + 'no_link_dev.json', 'w', encoding='utf-8') as data_out:
+        json.dump(no_link, data_out, indent=4)
+        print("no link dev dumped")
+
+
 def main():
     global mode
     mode = configure.DEV_MODE
@@ -280,7 +356,9 @@ def main():
     # eval_docs()
 
 
-# if __name__ == "__main__":
-    # dump_wood_entitys()
+if __name__ == "__main__":
+    # dump_no_link_dev()
+    # dump_gold_entitys()
     # dump_diff_entitys()
-    # dump_unigram_blacklist()
+    do_file()
+    eval_docs()

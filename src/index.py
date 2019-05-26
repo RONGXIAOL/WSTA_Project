@@ -8,6 +8,9 @@ import pickle
 import configure
 from bisect import bisect_left, bisect_right
 
+pronoun = ["he", "she", "they", "it"]
+possessive = ["his", "her", "their", "its"]
+
 
 def trim(topic):
     topic = re.sub(r'_-LRB-.*?-RRB-', '', topic)
@@ -231,3 +234,23 @@ def get_doc(topic, lines):
         print(f'{topic} not found, may be unicode inconsistency.')
         return None
     return lines[lhsid:rhsid]
+
+def get_sents(evidences):
+	sents = []
+	for evidence in evidences:
+		evidence = evidence.strip("\n ")
+		evidence = re.sub(r'-LRB-', '(', evidence)
+		evidence = re.sub(r'-RRB-', ')', evidence)
+		evidence = re.sub(r'-LSB-', '[', evidence)
+		evidence = re.sub(r'-RSB-', ']', evidence)
+		tokens = evidence.split()
+		topic = " ".join(tokens[0].split("_"))
+		sent = tokens[2:]
+		for i in range(len(sent)):
+			if sent[i].lower() in pronoun:
+				sent[i] = topic
+			elif sent[i].lower() in possessive:
+				sent[i] = topic + "'s"
+		sent = " ".join(sent)
+		sents.append(sent)
+	return sents
