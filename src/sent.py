@@ -5,12 +5,11 @@ import time
 import json
 import pickle
 import configure
-from pprint import pprint
 from unicodedata import normalize
 from nltk.stem.wordnet import WordNetLemmatizer
 from index import get_wiki, get_doc, trim
-from ner import parse_claim_entitys, extract_info, weight, word_similarity
-from ner import remove_articles, get_keywords, query_doc, load_unig_entity
+from ner import parse_claim_entitys, extract_info, word_similarity
+from ner import remove_articles, get_keywords, query_doc, load_blacklist
 
 wnl = WordNetLemmatizer()
 mode = None
@@ -138,7 +137,6 @@ def sent_sim(ckw, skw):
                        ninuse + ADJV_WEIGHT * ainuse + MISC_WEIGHT * oinuse)
     except ZeroDivisionError:
         wscore = 0.0
-        print(ckw, skw)
     assert(wscore <= 1)
     return wscore
 
@@ -149,6 +147,10 @@ def pick_sents(claim, sents):
     c_document, topic = extract_info(sents)
     topic_words = set(trim(topic).split())
     c_keywords = [ckw for ckw in c_keywords if ckw[0] not in topic_words]
+    if(len(c_keywords) == 0):
+        c_keywords = get_keywords(claim.replace('-', ' '))
+        c_keywords = [ckw for ckw in c_keywords if ckw[0] not in topic_words]
+        print(c_keywords)
     ret = []
     for key, content in c_document.items():
         s_keywords = get_keywords(content)
@@ -170,19 +172,22 @@ def do_answ(dev, answer):
         claim = entry['claim']
         label = "SUPPORTS"
         evidence = answer[key]['evidence']
-        score = [e[1][1] for e in evidence]
-        sents = [e[1][2] for e in evidence]
         evidence = sorted(evidence, key=lambda s: s[1][1], reverse=True)[
             :configure.TOP_THRE]
         answer[key]['evidence'] = evidence
+        score = [e[1][1] for e in evidence]
+        sents = [e[1][2] for e in evidence]
         evidence = [[normalize('NFD', e[0]), int(e[1][0])] for e in evidence]
         todump[key] = {
             'claim': claim,
             'label': label,
             'evidence': evidence,
-            'score' : score,
-            'sents' : sents
+            'score': score,
+            'sents': sents
         }
+    if(mode != configure.TST_MODE):
+        for key, entry in todump.items():
+            entry['truelabel'] = dev[key]['label']
     with open(answ_file, 'w', encoding='utf-8') as answer_out:
         json.dump(todump, answer_out)
         print("answer dumped")
@@ -192,10 +197,11 @@ def do_answ(dev, answer):
 def do_ners():
     check_file()
     claim_entitys = {}
-    load_unig_entity()
+    load_blacklist()
     with open(json_file, 'r', encoding='utf-8') as dev_in:
         dev = json.load(dev_in)
         count = 0
+        entity_num = 0
         for key, entry in dev.items():
             count += 1
             if(count % 1000 == 0):
@@ -203,10 +209,12 @@ def do_ners():
             claim = entry['claim']
             entitys = parse_claim_entitys(claim)
             claim_entitys[key] = entitys
+            entity_num += len(entitys)
 
     with open(ners_file, 'w', encoding='utf-8') as entitys_out:
         json.dump(claim_entitys, entitys_out)
         print("entitys dumped")
+    print(f'{entity_num} entitys in total')
 
 
 def do_docs():
@@ -229,7 +237,7 @@ def do_docs():
     start = time.time()
     for key, entry in entitys.items():
         count += 1
-        if(count % 100 == 0):
+        if(count % 1000 == 0):
             point = time.time()
             print(count, (point-start)/60)
         query = entitys[key]
@@ -295,8 +303,8 @@ def do_sent():
             'claim': entry['claim'],
             'label': 'SUPPORTS',
             'evidence': [],
-            'sents' : [],
-            'score' : []
+            'sents': [],
+            'score': []
         }
     count = 0
     start = time.time()
@@ -310,7 +318,9 @@ def do_sent():
             lines = wiki_in.readlines()
             for doc in docsl:
                 count += 1
-                if(count % 100 == 0):
+                # if(count < 8500):
+                    # continue
+                if(count % 1000 == 0):
                     check = time.time()
                     print(count, (check - start) / 60.0)
                 topic = doc[0]
@@ -322,21 +332,22 @@ def do_sent():
                 sents = pick_sents(claim, sents)
                 evidence = [[topic, s] for s in sents]
                 answer[d_key]['evidence'] += evidence
-        # if(count > 100):
+        # if(count > 9000):
             # break
+            # sys.exit(-1)
     do_answ(dev, answer)
 
 
-def main():
+def main(m):
     global mode
-    mode = configure.DEV_MODE
+    mode = m
     name = mode_name[mode]
     print(f'Start in ***{name}*** mode')
     do_file(mode=mode)
-    # do_ners()
-    # do_docs()
-    do_wiki()
-    # do_sent()
+    do_ners()
+    do_docs()
+    # do_wiki()
+    do_sent()
 
 
 if __name__ == "__main__":
