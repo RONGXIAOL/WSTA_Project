@@ -12,5 +12,5 @@ Team member: Jiazhen Hu, Rongxiao Liu
 <b>(1) information extraction</b>  
   
 <b>(2) claim verification</b>  
-run `run_retrain.py` in `bert` directory
-
+run `run_retrain.sh` in `bert` directory
+(add `--use_tpu=True --tpu_name=$TPU_NAME` at the end of `python3 run_classifier.py` command if you have a TPU)
