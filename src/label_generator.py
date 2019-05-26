@@ -1,11 +1,9 @@
 import json
 from collections import Counter
 
-with open("./myModel/testset.json", 'r', encoding='utf-8') as f:
+with open("../data/testset.json", 'r', encoding='utf-8') as f:
 	dic = json.load(f)
-f2 = open("./myModel/myModel_test_result.tsv", 'r', encoding='utf-8')
-
-num = 0
+f2 = open("./mymodel/test_results.tsv", 'r', encoding='utf-8')
 
 for _id in dic:
 	vote = Counter()
