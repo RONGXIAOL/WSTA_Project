@@ -12,10 +12,10 @@ from unicodedata import normalize
 
 
 def trim(topic):
-    topic = re.sub(r'-LRB-.*?-RRB-', '', topic)
-    topic = re.sub(r'-LSB-.*?-RSB-', '', topic)
-    topic = re.sub(r'-LCB-.*?-RCB-', '', topic)
-    topic = topic.replace('-COLON-_', ':')
+    topic = re.sub(r'_-LRB-.*?-RRB-', '', topic)
+    topic = re.sub(r'_-LSB-.*?-RSB-', '', topic)
+    topic = re.sub(r'_-LCB-.*?-RCB-', '', topic)
+    topic = topic.replace('-COLON-_', ': ')
     topic = topic.replace('_', ' ')
     return topic
 

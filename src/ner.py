@@ -8,7 +8,9 @@ import pprint
 import re
 from index import trim
 from collections import Counter
-from nltk.corpus import wordnet
+from nltk.corpus import brown
+from nltk.corpus import wordnet_ic
+from nltk.corpus import wordnet as wn
 from nltk import pos_tag, word_tokenize
 
 articles = {'The', 'A'}
@@ -33,12 +35,38 @@ FIRST_ENTITY_LEN = 5
 B_SENT = '$$$'
 L_SENT = '^^^'
 UNIG_ENTITYS = {}
+BROWN_IC = wordnet_ic.ic('ic-brown.dat')
+
+def word_similarity(word_1, word_2):
+    max_sim = 0.0
+    synsets_1 = wn.synsets(word_1)
+    synsets_2 = wn.synsets(word_2)
+    if(len(synsets_1) == 0 or len(synsets_2) == 0):
+        return 0
+    for synset_1 in synsets_1[:1]:
+        for synset_2 in synsets_2[:1]:
+            try:
+                sim = wn.lin_similarity(synset_1, synset_2, BROWN_IC)
+                max_sim = max(sim, max_sim)
+            except nltk.corpus.reader.wordnet.WordNetError:
+                continue
+            except ZeroDivisionError:
+                print(word_1, word_2)
+                continue
+    return max_sim
+
+
+def load_unig_entity():
+    global UNIG_ENTITYS
+    with open(configure.INSPPATH + 'unig_entitys.json', 'r', encoding='utf-8') as unig_in:
+        UNIG_ENTITYS = json.load(unig_in)
+        print("unig loaded")
 
 
 def trim_claim(claim):
     claim = re.sub(r'\([\w\d\s]+?\)', '', claim)
-    claim = claim.replace(', ', ' , , ')
-    # claim = claim.replace('`', '')
+    claim = claim.replace(', ', ' is  is ')
+    claim = claim.replace('\'s ', ' is is ')
     claim = claim.replace('\'s', ' is')
     # claim = claim.replace('\"', '')
     return claim
@@ -50,6 +78,7 @@ def remove_articles(original_ent):
         new_ent = [word for word in ent.split() if word not in articles]
         new_ent = ' '.join(new_ent)
         ret.append(new_ent)
+    ret = [e for e in ret if e not in original_ent]
     return ret
 
 
@@ -70,7 +99,7 @@ def query_doc(query, trimed, capital):
             trm = t[1]
             score = abs(len(trm) - len(q))
             if(score < configure.DIF_SIZE):
-                # q = q.replace(' ', '_')
+                q = q.replace(' ', '_')
                 if(q.find(trm) != -1 or trm.find(q) != -1):
                     ret.append((tpc, score))
     return ret
@@ -79,14 +108,14 @@ def query_doc(query, trimed, capital):
 def extract_info(sents):
     ret = {}
     for s in sents:
+        s = s.replace('.\n', '')
         words = s.split()
         topic = words[0]
         s_num = words[1]
         index = len(topic) + len(s_num) + 2
         content = s[index:]
-        # content = content.replace('_', ' ')
         ret[s_num] = content
-    return ret
+    return ret, topic
 
 
 def get_keywords(claim):
@@ -98,7 +127,7 @@ def get_keywords(claim):
         tag_type = tag[1]
         # if(tag_type not in reals and tag_type not in junks and tag_type.isalpha()):
         # raise TypeError(f'{tag} not found in Penn TreeBank POS')
-        if(tag_type in reals and tag_word.isalnum()):
+        if(tag_word not in being and tag_type in reals and tag_word.isalnum()):
             ret.append(tag)
     return ret
 
@@ -128,6 +157,8 @@ def tags_to_entity(ptags):
 def is_verb(tag):
     tag_word = tag[0]
     tag_type = tag[1]
+    if(tag_word is ','):
+        return True
     if(not tag_word.islower()):
         return False
     if(tag_type[0] == 'V'):
@@ -135,7 +166,7 @@ def is_verb(tag):
     if(tag_type == 'MD'):
         return True
     wnl = nltk.stem.wordnet.WordNetLemmatizer()
-    new_word = wnl.lemmatize(tag_word, wordnet.VERB)
+    new_word = wnl.lemmatize(tag_word, 'v')
     if(new_word != tag_word):
         return True
     return False
@@ -153,8 +184,8 @@ def is_adverb(tag):
     return False
 
 
-def refine_entity(ptags):
-    if(len(ptags) == 1):
+def refine_entity(ptags, from_start=False):
+    if(len(ptags) == 1 and not from_start):
         tag = ptags[0]
         tag_word = tag[0]
         tag_type = tag[1]
@@ -162,9 +193,19 @@ def refine_entity(ptags):
             return [tag]
         else:
             return []
-    elif(len(ptags) > 5):
-        ret = get_rest_entitys(ptags[1:])
-        return ret
+    elif(len(ptags) > FIRST_ENTITY_LEN):
+        isent = [may_be_entity(p) for p in ptags]
+        isent = [e for e in isent[1:] if e is True]
+        score = len(isent) + 0.5
+        if(score > 0.5 * len(ptags)):
+            return ptags
+        try:
+            ret = get_rest_entitys(ptags[::-1])
+            ret = [r[::-1] for r in ret]
+            return ret
+        except RecursionError:
+            print(ptags)
+            return []
     else:
         return ptags
 
@@ -181,7 +222,7 @@ def get_first_entity(ptags):
             break
         ret.append(tag)
         count += 1
-    ret = refine_entity(ret)
+    ret = refine_entity(ret, from_start=True)
     return ret, ptags[count:]
 
 
@@ -196,6 +237,10 @@ def may_be_entity(tag):
         return False
     if(not tag_word.isalpha() and len(tag_word) < 3):
         return False
+    if(tag_type is 'DT'):
+        return False
+    if(re.search(r'[\w]+\.[\w]*', tag_word) is not None):
+        return True
     if(not tag_word.islower()):
         return True
     return False
@@ -220,14 +265,14 @@ def get_rest_entitys(remain_ptags):
         if(l_ent and r_ent or c_ent):
             tmp.append(tag)
         elif(len(tmp) != 0):
-            tmp = refine_entity(tmp)
+            tmp = refine_entity(tmp, from_start=False)
             if(len(tmp) > 0):
                 ret.append(tmp)
             tmp = []
         else:
             continue
     if(len(tmp) != 0):
-        tmp = refine_entity(tmp)
+        tmp = refine_entity(tmp, from_start=False)
         if(len(tmp) > 0):
             ret.append(tmp)
     return ret
@@ -235,7 +280,8 @@ def get_rest_entitys(remain_ptags):
 
 def parse_claim_entitys(claim):
     ret = []
-    claim = trim_claim(claim)[:-1]
+    claim = claim[:-1]
+    claim = trim_claim(claim)
     claim = claim.split()
     ptags = nltk.pos_tag(claim)
     ptags = [[p[0], p[1]] for p in ptags]
@@ -289,6 +335,7 @@ def dump_gold_entitys():
 
 def dump_diff_entitys():
     diff = {}
+    lens = [0] * 10
     with open(configure.INSPPATH + 'gold_entitys.json', 'r', encoding='utf-8') as gold_in:
         gold = json.load(gold_in)
         print("gold entitys loaded")
@@ -299,11 +346,11 @@ def dump_diff_entitys():
     for key, entry in gold.items():
         count += 1
         gold_set = [e[1] for e in entry['entitys']]
-        try:
-            wood_set = wood[key]['entitys']
-        except KeyError:
-            break
+        wood_set = wood[key]['entitys']
+        wood_art = remove_articles(wood_set)
+        wood_set = wood_set + wood_art
         diff_set = [g for g in gold_set if g not in wood_set]
+        lens[len(diff_set)] += 1
         if(len(diff_set) == 0):
             continue
         diff[key] = {}
@@ -314,21 +361,20 @@ def dump_diff_entitys():
     with open(configure.INSPPATH + 'diff_entitys.json', 'w') as entitys_out:
         json.dump(diff, entitys_out)
         print("diff entitys dumped")
+    print(lens)
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     # with open(configure.TRN_JSON, 'r', encoding='utf-8') as json_in:
     #     json_file = json.load(json_in)
     #     print("json loaded")
-    # with open(configure.INSPPATH + 'unig_entitys.json', 'r', encoding='utf-8') as unig_in:
-    #     UNIG_ENTITYS = json.load(unig_in)
-    #     print("unig loaded")
+
     # wood_entitys = {}
     # count = 0
     # start = time.time()
     # for key, entry in json_file.items():
     #     count += 1
-    #     if(count % 10000 == 0):
+    #     if(count % 1000 == 0):
     #         check = time.time()
     #         print(count, (check - start)/60)
     #     claim = entry['claim']
@@ -340,4 +386,4 @@ if __name__ == "__main__":
     # with open(configure.INSPPATH + 'wood_entitys.json', 'w', encoding='utf-8') as wood_out:
     #     json.dump(wood_entitys, wood_out)
     #     print("wood dumped")
-    dump_diff_entitys()
+    # dump_diff_entitys()
