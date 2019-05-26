@@ -6,9 +6,7 @@ import json
 import pprint
 import pickle
 import configure
-from collections import Counter
 from bisect import bisect_left, bisect_right
-from unicodedata import normalize
 
 
 def trim(topic):
@@ -41,10 +39,10 @@ def sort_by_wiki():
                     sorted_wiki.write(line)
         count += 1
         print(count)
-    with open(configure.SORTPATH + "intervals.txt", 'w', encoding='utf-8') as intervals_out:
-        for mini, maxi in intervals:
-            intervals_out.write("mini = {}, maxi = {}\n".format(mini, maxi))
-        print("intervals dumped")
+    # with open(configure.JSONPATH + "intervals.txt", 'w', encoding='utf-8') as intervals_out:
+    #     for mini, maxi in intervals:
+    #         intervals_out.write("mini = {}, maxi = {}\n".format(mini, maxi))
+    #     print("intervals dumped")
 
 
 def adjust_margin(chunk, lines):
@@ -63,7 +61,6 @@ def adjust_margin(chunk, lines):
 def sort_by_corpus():
     offset = 8
     length = len(configure.WIKILIST)
-    # length = 10
     lines = []
     sortlist = os.listdir(configure.SORTPATH)
     cut_size = configure.CUT_SIZE
@@ -165,7 +162,7 @@ def dump_topics():
             topics_out.writelines(todump)
             topics_out.write('\n')
         count += 1
-        print(count, sys.getsizeof(topics) / 1024 / 1024)
+        # print(count, sys.getsizeof(topics) / 1024 / 1024)
     with open(configure.PICKPATH + "topics.pickle", 'wb') as topics_out:
         pickle.dump(topics, topics_out)
         print("topics dumped")

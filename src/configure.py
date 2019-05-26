@@ -7,7 +7,7 @@ PICKPATH = DATAPATH + "pick\\"
 SORTPATH = DATAPATH + "sort\\"
 DUMPPATH = DATAPATH + "dump\\"
 INSPPATH = DATAPATH + "insp\\"
-# WIKIPATH = DATAPATH + "wiki\\"
+WIKIPATH = DATAPATH + "wiki\\"
 
 DEV_JSON = JSONPATH + "dev_set.json"
 TST_JSON = JSONPATH + "test_set.json"
@@ -51,11 +51,10 @@ REF_MODE = 5
 NEI_MODE = 6
 
 DUMPLIST = os.listdir(DUMPPATH)
-# WIKILIST = os.listdir(WIKIPATH)
+WIKILIST = os.listdir(WIKIPATH)
 
 CUT_SIZE = 230000
 DIF_SIZE = 2
 
-RAW_THRE = 5
 SIM_THRE = 0.4
 TOP_THRE = 5
