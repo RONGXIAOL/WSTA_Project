@@ -1,6 +1,6 @@
 COMP90042WSTA Project AutomaticFactVerification
 ======
-Team member: Jiazhen Hu, Rongxiao Liu
+Team member: Jiazhen Hu(971800), Rongxiao Liu(927694)
 ------
 
 ## Requirements
