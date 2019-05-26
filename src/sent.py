@@ -344,11 +344,11 @@ def main(m):
     name = mode_name[mode]
     print(f'Start in ***{name}*** mode')
     do_file(mode=mode)
-    do_ners()
-    do_docs()
+    # do_ners()
+    # do_docs()
     # do_wiki()
-    do_sent()
+    # do_sent()
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+    # main()

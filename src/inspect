@@ -40,3 +40,14 @@ Number  Tag     Description
 # [0, 24357, 64724, 12427, 4036, 1754, 742, 189, 29, 2]
 # entity eval
 # [98519, 6216, 110, 9, 0, 1, 0, 0, 0, 0]
+no link entity eval
+[85321, 19318, 2662, 913, 518, 332, 251, 163, 110, 74, 49, 26, 22, 15, 15, 6, 4, 4, 1, 1, 2, 2, 0, 1, 0, 0, 0, 0, 0, 0]
+
+no link dev
+Label Accuracy          33.33%
+Sentence Precision      48.99%
+Sentence Recall         52.35%
+Sentence F1             50.62%
+Document Precision      80.03%
+Document Recall         64.70%
+Document F1             71.55%
