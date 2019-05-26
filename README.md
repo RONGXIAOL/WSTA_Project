@@ -13,4 +13,4 @@ Team member: Jiazhen Hu, Rongxiao Liu
   
 <b>(2) claim verification</b>  
 run `run_retrain.sh` in `bert` directory
-(add `--use_tpu=True --tpu_name=$TPU_NAME` at the end of `python3 run_classifier.py` command if you have a TPU)
+(add `--use_tpu=True --tpu_name=$TPU_NAME` at the end of command `python3 run_classifier.py` if you have a TPU)
