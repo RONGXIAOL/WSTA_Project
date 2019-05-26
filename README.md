@@ -17,5 +17,5 @@ run `run_retrain.sh` in `bert` directory
 
 
 ## Reference
-The files in directory `bert` are cloned from https://github.com/google-research/bert.git with some modification on `run_classifier.py`.
+The files in directory `bert` are cloned from https://github.com/google-research/bert.git with modification on `run_classifier.py`.
 The pretrained bert model is downloaded from https://storage.googleapis.com/bert_models/2018_10_18/cased_L-12_H-768_A-12.zip
