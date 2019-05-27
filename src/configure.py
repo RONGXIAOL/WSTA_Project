@@ -6,14 +6,14 @@ You can change any path value to fit your working directory
 '''
 import os
 
-ROOTPATH = os.getcwd() + "\\"
-DATAPATH = ROOTPATH + "data\\"
-JSONPATH = DATAPATH + "json\\"
-PICKPATH = DATAPATH + "pick\\"
-SORTPATH = DATAPATH + "sort\\"
-DUMPPATH = DATAPATH + "dump\\"
-INSPPATH = DATAPATH + "insp\\"
-WIKIPATH = DATAPATH + "wiki\\"
+ROOTPATH = os.getcwd() + "/"
+DATAPATH = ROOTPATH + "data/"
+JSONPATH = DATAPATH + "json/"
+PICKPATH = DATAPATH + "pick/"
+SORTPATH = DATAPATH + "sort/"
+DUMPPATH = DATAPATH + "dump/"
+INSPPATH = DATAPATH + "insp/"
+WIKIPATH = DATAPATH + "wiki/"
 
 DEV_JSON = JSONPATH + "dev_set.json"
 TST_JSON = JSONPATH + "test_set.json"
