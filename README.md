@@ -11,9 +11,9 @@ Team member: Jiazhen Hu(971800), Rongxiao Liu(927694)
 ## Usage:
 <b>(1) information extraction</b>  
 In project root directory,  
-run dev set with command `python src/app.py dev`  
-run test set with command `python src/app.py test`  
-run train set with command `python src/app.py train`  
+run dev set with command `python3 src/app.py dev`  
+run test set with command `python3 src/app.py test`  
+run train set with command `python3 src/app.py train`  
 <b>(2) claim verification</b>  
 run `run_retrain.sh` in `bert` directory  
 (add `--use_tpu=True --tpu_name=$TPU_NAME` at the end of command `python3 run_classifier.py` if you have a TPU)
