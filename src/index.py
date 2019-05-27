@@ -1,3 +1,6 @@
+'''
+This is used to generate index of the whole wiki corpus
+'''
 import os
 import re
 import sys
