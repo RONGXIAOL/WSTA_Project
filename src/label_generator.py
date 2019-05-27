@@ -1,3 +1,4 @@
+## this is the program to generate labels according to returned probabilities for each evidence
 import json
 from collections import Counter
 
