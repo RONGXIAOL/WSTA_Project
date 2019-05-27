@@ -214,7 +214,6 @@ class MyProcessor(DataProcessor):
 		for _id in train_set:
 			claim = train_set[_id]["claim"]
 			label = train_set[_id]["label"]
-			# sents = " ".join(train_set[_id]["sents"])
 			sents = train_set[_id]["sents"]
 			for i in range(len(sents)):
 				guid = 'train-%s'%(_id+"-"+str(i))
@@ -232,7 +231,6 @@ class MyProcessor(DataProcessor):
 		for _id in dev_set:
 			claim = dev_set[_id]["claim"]
 			label = dev_set[_id]["label"]
-			# sents = " ".join(dev_set[_id]["sents"])
 			sents = dev_set[_id]["sents"]
 			for i in range(len(sents)):
 				guid = 'dev-%s'%(_id+"-"+str(i))
@@ -250,7 +248,6 @@ class MyProcessor(DataProcessor):
 		for _id in test_set:
 			claim = test_set[_id]["claim"]
 			label = "SUPPORTS"
-			# sents = " ".join(test_set[_id]["sents"])
 			sents = test_set[_id]["sents"]
 			for i in range(len(sents)):
 				guid = 'test-%s'%(_id+"-"+str(i))
