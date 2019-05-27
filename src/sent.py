@@ -1,3 +1,6 @@
+'''
+This is used to retrieve relevant documents and sentences
+'''
 import os
 import re
 import sys

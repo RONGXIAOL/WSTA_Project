@@ -1,3 +1,9 @@
+'''
+This is all the configuration of our system
+Please do not change any threshold value
+Unless you know what they mean
+You can change any path value to fit your working directory
+'''
 import os
 
 ROOTPATH = os.getcwd() + "\\"
@@ -16,9 +22,9 @@ SUP_JSON = JSONPATH + 'sup_set.json'
 REF_JSON = JSONPATH + 'ref_set.json'
 NEI_JSON = JSONPATH + 'nei_set.json'
 
-DEV_ANSW = JSONPATH + "dev_out.json"
-TST_ANSW = JSONPATH + "test_out.json"
-TRN_ANSW = JSONPATH + "train_out.json"
+DEV_ANSW = JSONPATH + "developset.json"
+TST_ANSW = JSONPATH + "testset.json"
+TRN_ANSW = JSONPATH + "trainset.json"
 SUP_ANSW = JSONPATH + 'sup_out.json'
 REF_ANSW = JSONPATH + 'ref_out.json'
 NEI_ANSW = JSONPATH + 'nei_out.json'

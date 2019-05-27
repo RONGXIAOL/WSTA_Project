@@ -1,3 +1,6 @@
+'''
+This is for the system evaluation
+'''
 import os
 import re
 import io
@@ -314,7 +317,7 @@ def dump_train_set():
                         new_data[key]['sents'].append(sents[i])
                         break
         new_data[key]['sents'] = index.get_sents(new_data[key]['sents'])
-    with open(configure.DATAPATH + 'train_out.json', 'w', encoding='utf-8') as data_out:
+    with open(configure.DATAPATH + 'trainset.json', 'w', encoding='utf-8') as data_out:
         json.dump(new_data, data_out, indent=4)
         print("new train set dumped")
         
