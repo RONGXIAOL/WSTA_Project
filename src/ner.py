@@ -1,3 +1,6 @@
+'''
+This is used to do ner tagging for claims and evidences
+'''
 import time
 import json
 import pickle

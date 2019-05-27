@@ -1,3 +1,7 @@
+'''
+This is the main entry of our app
+See README.md for usage detail
+'''
 import index
 import eva
 import sent

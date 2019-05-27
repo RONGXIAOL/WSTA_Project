@@ -130,3 +130,5 @@ dmypy.json
 .pyre/
 src/todo
 src/inspect
+.code-workspace
+.DS_store
